@@ -1,5 +1,6 @@
 package org.example;
 
+import org.example.controller.HomeController;
 import org.example.model.AppConstants;
 import org.example.view.HomePage;
 
@@ -30,20 +31,13 @@ class App extends JFrame {
     CardLayout cardLayout = new CardLayout();
     JPanel mainPanel = new JPanel(cardLayout);
 
-    JPanel home = null;
     try {
-      home = new HomePage();
+      HomePage home = new HomePage();
+      new HomeController(home);
+      mainPanel.add(home, "home");
     } catch (ParseException e) {
       SHOW_ERROR_DIALOG(this, e);
     }
-
-    // Adicionando os "cards" ao painel principal
-    mainPanel.add(home, "home");
-
-    // Ação dos botões para mudar de tela
-    //btnGoHome.addActionListener(e -> cardLayout.show(mainPanel, "home"));
-
-    home.setVisible(true);
     add(mainPanel);
   }
 }
