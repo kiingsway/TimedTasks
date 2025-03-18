@@ -19,24 +19,35 @@ import java.util.stream.IntStream;
 import static org.example.model.AppConstants.*;
 import static org.example.view.components.TimePicker.sumTimes;
 
-public class HomeController {
+public class HomeControllerOld {
 
-  //private final List<JPanel> panels = new ArrayList<>();
+  private final List<Component[]> fields = new ArrayList<>();
   private final HomePage view;
-  //private final JPanel panel = new JPanel();
+  private final JPanel panel = new JPanel();
 
-  public HomeController(HomePage view) throws ParseException {
+  public HomeControllerOld(HomePage view) throws ParseException {
     this.view = view;
 
-    newTaskPanel();
+    JScrollPane scrollPane = new JScrollPane(panel);
+    scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+    scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+
+    view.gbc().gridy++;
+    view.gbc().gridheight = 1;
+    view.gbc().weighty = 1;
+    view.add(scrollPane, view.gbc());
+
+    addPanelNewTask();
   }
 
-  private void newTaskPanel() throws ParseException {
+  private void addPanelNewTask() throws ParseException {
     JPanel panel = new JPanel();
     panel.setLayout(new GridBagLayout());
     GridBagConstraints c = new GridBagConstraints();
 
-    Component[] inputs = getPanelFormInputs();
+    Component[] inputs = getInputs();
+
+    fields.add(inputs);
 
     c.gridx = 0;
     c.fill = GridBagConstraints.HORIZONTAL;
@@ -58,20 +69,23 @@ public class HomeController {
       c.gridx++;
     }
 
-    view.addItem(panel);
     handleActionAvailability();
+
+    this.panel.add(panel);
+    this.panel.revalidate();
+    this.panel.repaint();
   }
 
-  private Component[] getPanelFormInputs() throws ParseException {
-    JButton btnDown = new JButton("\\/");
+  private Component[] getInputs() throws ParseException {
     JButton btnUp = new JButton("/\\");
+    JButton btnDown = new JButton("\\/");
     JTextField txtTitle = new JTextField();
     TimePicker txtETA = new TimePicker();
     TimePicker txtStart = new TimePicker();
     TimePicker txtEnd = new TimePicker();
     JButton btnDel = new JButton("X");
 
-    int index = view.getItems().size();
+    int index = fields.size();
 
     boolean isFirstField = (index == 0);
     txtStart.setEnabled(isFirstField);
@@ -86,18 +100,22 @@ public class HomeController {
     txtStart.addChangeListener(_ -> handleStartChange(index));
     txtEnd.addChangeListener(_ -> handleEndChange(index));
 
-    btnDown.addActionListener(new AbstractAction() {
-      @Override
-      public void actionPerformed(ActionEvent e) {
-        moveComponent(index, index - 1);
-      }
-    });
     btnUp.addActionListener(new AbstractAction() {
       @Override
       public void actionPerformed(ActionEvent e) {
         moveComponent(index, index + 1);
+        removeField(index);
       }
     });
+
+    btnDown.addActionListener(new AbstractAction() {
+      @Override
+      public void actionPerformed(ActionEvent e) {
+        moveComponent(index, index - 1);
+        removeField(index);
+      }
+    });
+
     btnDel.addActionListener(new AbstractAction() {
       @Override
       public void actionPerformed(ActionEvent e) {
@@ -106,7 +124,7 @@ public class HomeController {
     });
 
     if (!isFirstField) {
-      TimePicker lastTxtEnd = (TimePicker) getFieldsFromPanels().get(index - 1).get(COL_END);
+      TimePicker lastTxtEnd = (TimePicker) fields.get(index - 1)[COL_END];
       txtStart.setTime(lastTxtEnd.getTime());
       txtEnd.setTime(lastTxtEnd.getTime());
     }
@@ -120,15 +138,14 @@ public class HomeController {
     txtTitle.addKeyListener(new KeyAdapter() {
       @Override
       public void keyReleased(KeyEvent e) {
-        List<List<Component>> fields = getFieldsFromPanels();
         boolean isLastTask = IntStream.range(0, fields.size())
-                .filter(i -> fields.get(i).contains(txtTitle))
+                .filter(i -> Arrays.asList(fields.get(i)).contains(txtTitle))
                 .findFirst()
                 .orElse(-1) == fields.size() - 1;
 
         if (!txtTitle.getText().isEmpty() && isLastTask) {
           try {
-            newTaskPanel();
+            addPanelNewTask();
           } catch (ParseException ex) {
             SHOW_ERROR_DIALOG(view, ex);
           }
@@ -159,8 +176,8 @@ public class HomeController {
     try {
       String newEnd = sumTimes(txtStart.getTime(), eta);
       txtEnd.setTime(newEnd);
-//      panel.revalidate();
-//      panel.repaint();
+      panel.revalidate();
+      panel.repaint();
     } catch (ParseException ex) {
       SHOW_ERROR_DIALOG(view, ex);
     }
@@ -177,13 +194,12 @@ public class HomeController {
 
   private void handleStartChange(int index) {
     try {
-      List<List<Component>> fields = getFieldsFromPanels();
       if (fields.isEmpty() || index >= fields.size() - 1) return;
-      TimePicker txtStart = (TimePicker) fields.get(index).get(COL_START);
-      TimePicker txtEnd = (TimePicker) fields.get(index).get(COL_END);
-      TimePicker nextTxtETA = (TimePicker) fields.get(index + 1).get(COL_ETA);
-      TimePicker nextTxtStart = (TimePicker) fields.get(index + 1).get(COL_START);
-      TimePicker nextTxtEnd = (TimePicker) fields.get(index + 1).get(COL_END);
+      TimePicker txtStart = (TimePicker) fields.get(index)[COL_START];
+      TimePicker txtEnd = (TimePicker) fields.get(index)[COL_END];
+      TimePicker nextTxtETA = (TimePicker) fields.get(index + 1)[COL_ETA];
+      TimePicker nextTxtStart = (TimePicker) fields.get(index + 1)[COL_START];
+      TimePicker nextTxtEnd = (TimePicker) fields.get(index + 1)[COL_END];
 
       String end = sumTimes(txtStart.getTime(), txtEnd.getTime());
       txtEnd.setTime(end);
@@ -196,12 +212,11 @@ public class HomeController {
 
   private void handleEndChange(int index) {
     try {
-      List<List<Component>> fields = getFieldsFromPanels();
       if (fields.isEmpty() || index >= fields.size() - 1) return;
-      TimePicker txtEnd = (TimePicker) fields.get(index).get(COL_END);
-      TimePicker nextTxtETA = (TimePicker) fields.get(index + 1).get(COL_ETA);
-      TimePicker nextTxtStart = (TimePicker) fields.get(index + 1).get(COL_START);
-      TimePicker nextTxtEnd = (TimePicker) fields.get(index + 1).get(COL_END);
+      TimePicker txtEnd = (TimePicker) fields.get(index)[COL_END];
+      TimePicker nextTxtETA = (TimePicker) fields.get(index + 1)[COL_ETA];
+      TimePicker nextTxtStart = (TimePicker) fields.get(index + 1)[COL_START];
+      TimePicker nextTxtEnd = (TimePicker) fields.get(index + 1)[COL_END];
 
       nextTxtStart.setTime(txtEnd.getTime());
       nextTxtEnd.setTime(sumTimes(nextTxtETA.getTime(), nextTxtStart.getTime()));
@@ -210,36 +225,16 @@ public class HomeController {
     }
   }
 
-  private void updateAllItems() {
-    List<List<Component>> fields = getFieldsFromPanels();
-    for (int i = 0; i < fields.size(); i++) {
-      List<Component> inputs = fields.get(i);
-      JButton btnUp = (JButton) inputs.get(COL_UP);
-      JButton btnDown = (JButton) inputs.get(COL_DOWN);
-      JButton btnDel = (JButton) inputs.get(COL_DEL);
-
-      btnUp.setEnabled(i > 0);
-      btnDown.setEnabled(i < fields.size() - 1);
-      btnDel.setEnabled(fields.size() > 1);
-
-      handleStartChange(i);
-    }
-
-    view.revalidate();
-    view.repaint();
-  }
-
   private void handleActionAvailability() {
-    List<List<Component>> fields = getFieldsFromPanels();
     for (int i = 0; i < fields.size(); i++) {
-      List<Component> inputs = fields.get(i);
-      JButton btnUp = (JButton) inputs.get(COL_UP);
-      JButton btnDown = (JButton) inputs.get(COL_DOWN);
-      JButton btnDel = (JButton) inputs.get(COL_DEL);
+      Component[] inputs = fields.get(i);
+      JButton btnUp = (JButton) inputs[COL_UP];
+      JButton btnDown = (JButton) inputs[COL_DOWN];
+      JButton btnDel = (JButton) inputs[COL_DEL];
 
       btnUp.setEnabled(i > 0);
       btnDown.setEnabled(i < fields.size() - 1);
-      btnDel.setEnabled(fields.size() > 1);
+       btnDel.setEnabled(fields.size() > 1);
 
       handleStartChange(i);
     }
@@ -249,13 +244,7 @@ public class HomeController {
   }
 
   public void moveComponent(int fromIndex, int toIndex) {
-    String methodName = new Object() {
-    }.getClass().getEnclosingMethod().getName();
-    String msg = "Implementing...";
-    String tit = methodName + "(" + fromIndex + ", " + toIndex + ")";
-    JOptionPane.showMessageDialog(view, msg, tit, JOptionPane.INFORMATION_MESSAGE);
-
-    /*Component[] components = view.getComponents();
+    Component[] components = view.getComponents();
 
     if (fromIndex < 0 || fromIndex >= components.length || toIndex < 0 || toIndex >= components.length) {
       return; // Índices inválidos
@@ -267,27 +256,12 @@ public class HomeController {
     panel.add(movingComponent, toIndex);  // Adiciona na nova posição
 
     panel.revalidate();  // Atualiza o layout
-    panel.repaint();*/
+    panel.repaint();
   }
+
 
   private void removeField(int index) {
-    String methodName = new Object() {
-    }.getClass().getEnclosingMethod().getName();
-    String msg = "Implementing...";
-    String tit = methodName + "(" + index + ")";
-    JOptionPane.showMessageDialog(view, msg, tit, JOptionPane.INFORMATION_MESSAGE);
-
-    view.removeItem(index);
-    handleStartChange(index);
+    fields.remove(index);
     handleActionAvailability();
   }
-
-  private List<List<Component>> getFieldsFromPanels() {
-    List<List<Component>> fieldsFromPanels = new ArrayList<>();
-    for (JPanel panel : view.getItems()) {
-      fieldsFromPanels.add(Arrays.asList(panel.getComponents()));
-    }
-    return fieldsFromPanels;
-  }
-
 }
